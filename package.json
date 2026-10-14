@@ -1,0 +1,14 @@
+{
+  "name": "policypilot",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "py -m uvicorn app.main:app --app-dir backend --reload --port 8000",
+    "build:frontend": "npm --prefix frontend run build",
+    "test:frontend": "npm --prefix frontend test",
+    "test:backend": "py -m pytest backend",
+    "test": "npm run test:frontend && npm run test:backend",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "type:check:frontend": "npm --prefix frontend run type:check"
+  }
+}
