@@ -11,6 +11,9 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage/
+htmlcov/
 
 # ── Virtual environments ───────────────────────────────────────────
 .venv/
@@ -19,25 +22,32 @@ env/
 
 # ── Secrets / environment ──────────────────────────────────────────
 .env
-.env.local
-.env.*.local
+.env*
+!.env.example
+!.env*.example
 
-# ── Node / Next.js (frontend/) ─────────────────────────────────────
+# ── Node / Dependencies / Build Artifacts ──────────────────────────
+node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.vercel/
 frontend/coverage/
 
-# ── OS ────────────────────────────────────────────────────────────
+# ── Uploads, Storage, and Data ─────────────────────────────────────
+uploads/
+storage/
+data/
+*.pdf
+
+# ── Logs & Debugging ───────────────────────────────────────────────
+*.log
+
+# ── OS & IDE ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# ── IDE ───────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# ── TypeScript build info ──────────────────────────────────────────
 *.tsbuildinfo

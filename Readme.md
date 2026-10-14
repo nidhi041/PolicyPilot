@@ -112,6 +112,10 @@ PeoplePolicy AI is designed around role-based access, private document storage, 
 
 To make company HR policies **accessible, understandable, traceable, and reliable** through an AI assistant that helps employees find the right information while enabling HR teams to manage policy knowledge more effectively.
 
+## 💻 Developer Setup
+
+Refer to [DEVELOPMENT.md](DEVELOPMENT.md) for local environment setup, commands, and testing workflows.
+
 ---
 
 **PolicyPilot AI — Trusted Answers. Clear Policies. Better Employee Experiences.**
