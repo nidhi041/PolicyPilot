@@ -71,6 +71,25 @@ Run directly in service subdirectories:
 - **Backend tests**: `pytest backend` or `cd backend && pytest`
 - **Frontend checks**: `cd frontend && npm test`
 
+## Authentication Setup & Verification (Supabase Auth)
+
+### 1. Environment Configuration
+In `backend/.env`, configure your Supabase credentials:
+```bash
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+DATABASE_URL=postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres
+```
+
+### 2. Verification Workflow & Commands
+1. Client sends `Authorization: Bearer <token>`.
+2. Backend validates identity against Supabase Auth (`/auth/v1/user`).
+3. Backend retrieves or provisions the `Profile`. Browser-supplied roles/regions are ignored.
+
+- **Missing credentials** (HTTP 401 `MISSING_CREDENTIALS`): `curl -i http://localhost:8000/api/v1/auth/me`
+- **Valid token** (HTTP 200 with user & profile): `curl -i http://localhost:8000/api/v1/auth/me -H "Authorization: Bearer <TOKEN>"`
+
 ## Environment & Git Hygiene
 
 - Local environment files (`.env`, `.env.local`, `backend/.env`) are strictly gitignored.
