@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.auth import auth_router
 from app.config import get_settings
 from app.errors import register_error_handlers
 
@@ -25,6 +26,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
+    app.include_router(auth_router)
+    app.include_router(auth_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.api_prefix}/health", tags=["Health"])

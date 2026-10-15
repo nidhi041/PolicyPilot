@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     database_url: Optional[str] = None
     supabase_url: Optional[str] = None
     supabase_service_role_key: Optional[SecretStr] = None
+    supabase_anon_key: Optional[SecretStr] = None
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
