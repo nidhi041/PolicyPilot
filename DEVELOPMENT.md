@@ -90,6 +90,15 @@ DATABASE_URL=postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres
 - **Missing credentials** (HTTP 401 `MISSING_CREDENTIALS`): `curl -i http://localhost:8000/api/v1/auth/me`
 - **Valid token** (HTTP 200 with user & profile): `curl -i http://localhost:8000/api/v1/auth/me -H "Authorization: Bearer <TOKEN>"`
 
+### 3. Authorization Dependencies & Row Level Security (RLS)
+FastAPI endpoints derive caller identity and permissions strictly from verified credentials and server-side profile data:
+- `require_authenticated_user`: Verifies caller authentication and returns `AuthenticatedUser`.
+- `require_employee`: Verifies active employee privileges.
+- `require_hr_admin` / `require_hr_administrator`: Restricts access to verified HR administrators (`is_hr_administrator=True`). Unauthorized access returns HTTP 403 `FORBIDDEN`.
+- `require_roles(*roles)`: Configurable role dependency factory.
+
+Supabase PostgreSQL tables enforce Row Level Security (`profiles_select_own` and `profiles_update_own`), ensuring clients can only access their authorized profile rows.
+
 ## Environment & Git Hygiene
 
 - Local environment files (`.env`, `.env.local`, `backend/.env`) are strictly gitignored.
