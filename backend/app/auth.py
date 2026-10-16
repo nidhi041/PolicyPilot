@@ -108,10 +108,34 @@ async def get_current_user(
     )
 
 
+async def require_authenticated_user(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+    return current_user
+
+
+async def require_employee(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+    if current_user.profile.role not in (UserRole.EMPLOYEE.value, UserRole.HR_ADMINISTRATOR.value):
+        raise AppError("Forbidden: Employee access required", 403, "FORBIDDEN")
+    return current_user
+
+
 async def require_hr_admin(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
     if not current_user.profile.is_hr_administrator:
         raise AppError("Forbidden: HR Administrator access required", 403, "FORBIDDEN")
     return current_user
+
+
+require_hr_administrator = require_hr_admin
+
+
+def require_roles(*roles: str | UserRole):
+    allowed = {r.value if isinstance(r, UserRole) else str(r) for r in roles}
+
+    async def _role_checker(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if current_user.profile.role not in allowed:
+            raise AppError("Forbidden: Insufficient permissions", 403, "FORBIDDEN")
+        return current_user
+
+    return _role_checker
 
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])

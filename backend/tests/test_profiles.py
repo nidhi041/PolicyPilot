@@ -5,6 +5,7 @@ from pathlib import Path
 import uuid
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
@@ -105,3 +106,34 @@ def test_migration_upgrade_and_downgrade():
         with Operations.context(ctx):
             migration.downgrade()
         assert "profiles" not in sa.inspect(conn).get_table_names()
+
+
+def test_rls_migration_upgrade_and_downgrade():
+    migration_path = Path(__file__).parent.parent / "alembic" / "versions" / "20261016_001_profiles_rls.py"
+    spec = importlib.util.spec_from_file_location("migration_rls", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            migration.upgrade()
+            migration.downgrade()
+
+    mock_bind = MagicMock()
+    mock_bind.dialect.name = "postgresql"
+    with patch("alembic.op.get_bind", return_value=mock_bind), patch("alembic.op.execute") as mock_exec:
+        migration.upgrade()
+        assert mock_exec.called
+        upgrade_sql = mock_exec.call_args[0][0]
+        assert "ENABLE ROW LEVEL SECURITY" in upgrade_sql
+        assert "profiles_select_own" in upgrade_sql
+        assert "profiles_update_own" in upgrade_sql
+
+        mock_exec.reset_mock()
+        migration.downgrade()
+        assert mock_exec.called
+        downgrade_sql = mock_exec.call_args[0][0]
+        assert "DISABLE ROW LEVEL SECURITY" in downgrade_sql
+        assert "DROP POLICY IF EXISTS" in downgrade_sql
