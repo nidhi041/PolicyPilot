@@ -96,6 +96,14 @@ class StorageService:
             raise AppError(f"Failed to retrieve file from storage: {resp.text}", 502, "STORAGE_ERROR")
         return resp.content
 
+    async def delete_file(self, storage_path: str) -> None:
+        validate_storage_path(storage_path)
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.delete(self._url(storage_path), headers=self.headers)
+        except Exception:
+            pass
+
 
 storage_service = StorageService()
 storage_router = APIRouter(prefix="/storage", tags=["Storage"])
