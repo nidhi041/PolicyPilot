@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     max_policy_file_size_bytes: int = 10 * 1024 * 1024
     storage_signed_url_expiry: int = 300
     openai_api_key: Optional[SecretStr] = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimensions: int = 1536
+    openai_base_url: str = "http://localhost:11434/v1"
+    embedding_model: str = "nomic-embed-text"
+    embedding_dimensions: int = 768
     embedding_timeout_seconds: float = 30.0
     chunk_size_chars: int = 1000
     chunk_overlap_chars: int = 200

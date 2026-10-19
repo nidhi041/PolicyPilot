@@ -30,17 +30,17 @@ def sqlite_session():
 def test_embedding_model_dimensions_match_column():
     settings = get_settings()
     column_dim = getattr(PolicyChunk.embedding.type, "dim", None)
-    assert column_dim == 1536
+    assert column_dim == 768
     assert settings.embedding_dimensions == column_dim
     assert policy_chunk_repo.validate_dimensions_match_column() is True
 
 
 def test_vector_dimension_validation():
-    repo = PolicyChunkRepository(expected_dim=1536)
-    valid_emb = [0.01] * 1536
+    repo = PolicyChunkRepository(expected_dim=768)
+    valid_emb = [0.01] * 768
     repo.validate_embedding(valid_emb)
 
-    for bad in [[0.1] * 512, [], [0.0] * 1537]:
+    for bad in [[0.1] * 512, [], [0.0] * 769]:
         with pytest.raises(ValueError, match="dimension mismatch"):
             repo.validate_embedding(bad)
 
@@ -53,12 +53,12 @@ async def test_repository_save_and_retrieve_chunks(sqlite_session):
     sqlite_session.add(v)
     sqlite_session.commit()
 
-    repo = PolicyChunkRepository(expected_dim=1536)
+    repo = PolicyChunkRepository(expected_dim=768)
     chunks_data = [
         {"chunk_index": 0, "page_number": 1, "text": "First page chunk content."},
         {"chunk_index": 1, "page_number": 2, "text": "Second page chunk content."},
     ]
-    embeddings = [[0.01 * i] * 1536 for i in range(1, 3)]
+    embeddings = [[0.01 * i] * 768 for i in range(1, 3)]
 
     # Length mismatch
     with pytest.raises(ValueError, match="does not match embeddings count"):
@@ -74,7 +74,7 @@ async def test_repository_save_and_retrieve_chunks(sqlite_session):
     retrieved = await repo.get_chunks_by_version(sqlite_session, v.id)
     assert len(retrieved) == 2
     assert retrieved[0].text == "First page chunk content."
-    assert len(retrieved[0].embedding) == 1536
+    assert len(retrieved[0].embedding) == 768
 
 
 def test_foreign_key_integrity_and_cascade(sqlite_session):
@@ -84,7 +84,7 @@ def test_foreign_key_integrity_and_cascade(sqlite_session):
     sqlite_session.add(v)
     sqlite_session.commit()
 
-    chunk = PolicyChunk(policy_id=p.id, policy_version_id=v.id, page_number=1, chunk_index=0, text="Chunk text", char_count=10, embedding=[0.1] * 1536)
+    chunk = PolicyChunk(policy_id=p.id, policy_version_id=v.id, page_number=1, chunk_index=0, text="Chunk text", char_count=10, embedding=[0.1] * 768)
     sqlite_session.add(chunk)
     sqlite_session.commit()
 
@@ -95,7 +95,7 @@ def test_foreign_key_integrity_and_cascade(sqlite_session):
     assert sqlite_session.query(PolicyChunk).count() == 0
 
     # Foreign key violation
-    bad_chunk = PolicyChunk(policy_id=p.id, policy_version_id=uuid.uuid4(), page_number=1, chunk_index=0, text="Bad", char_count=3, embedding=[0.1] * 1536)
+    bad_chunk = PolicyChunk(policy_id=p.id, policy_version_id=uuid.uuid4(), page_number=1, chunk_index=0, text="Bad", char_count=3, embedding=[0.1] * 768)
     sqlite_session.add(bad_chunk)
     with pytest.raises(IntegrityError):
         sqlite_session.commit()
@@ -121,3 +121,17 @@ def test_migration_003_upgrade_and_downgrade():
         with Operations.context(ctx):
             migration.downgrade()
         assert "policy_chunks" not in sa.inspect(conn).get_table_names()
+
+
+def test_migration_004_vector_dimension_768():
+    migration_path = Path(__file__).parent.parent / "alembic" / "versions" / "20261019_004_update_policy_chunks_vector_dimension_768.py"
+    spec = importlib.util.spec_from_file_location("migration_004_v768", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            migration.upgrade()
+            migration.downgrade()
