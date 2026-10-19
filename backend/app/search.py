@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser, require_authenticated_user
+from app.citations import citation_validation_service
 from app.db.repository import policy_chunk_repo
 from app.embeddings import embedding_service
 from app.evidence import evidence_validation_service
@@ -96,4 +97,5 @@ async def answer_policy_question(
     val = evidence_validation_service.validate(chunks, target_region=current_user.profile.region)
     if not val.is_sufficient:
         return RAGAnswer(answer=f"Unable to provide policy answer: {val.reason}", citations=[], is_grounded=False, confidence="abstain")
-    return await llm_service.generate_answer(q, val.qualified_chunks)
+    raw = await llm_service.generate_answer(q, val.qualified_chunks)
+    return citation_validation_service.verify_answer(raw, val.qualified_chunks)
