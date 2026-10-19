@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     embedding_dimensions: int = 768
     embedding_timeout_seconds: float = 30.0
+    llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 30.0
     chunk_size_chars: int = 1000
     chunk_overlap_chars: int = 200
 
