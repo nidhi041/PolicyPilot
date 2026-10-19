@@ -6,6 +6,7 @@ from app.auth import auth_router
 from app.config import get_settings
 from app.errors import register_error_handlers
 from app.policies import policies_router
+from app.search import search_router
 from app.storage import storage_router
 
 
@@ -34,6 +35,8 @@ def create_app() -> FastAPI:
     app.include_router(storage_router, prefix=settings.api_prefix)
     app.include_router(policies_router)
     app.include_router(policies_router, prefix=settings.api_prefix)
+    app.include_router(search_router)
+    app.include_router(search_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.api_prefix}/health", tags=["Health"])
