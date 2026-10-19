@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     supabase_url: Optional[str] = None
     supabase_service_role_key: Optional[SecretStr] = None
     supabase_anon_key: Optional[SecretStr] = None
+    policy_storage_bucket: str = "policy-documents"
+    max_policy_file_size_bytes: int = 10 * 1024 * 1024
+    storage_signed_url_expiry: int = 300
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
