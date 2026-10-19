@@ -10,10 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser, require_hr_admin
 from app.config import get_settings
-from app.db.models import Policy, PolicyLifecycleStatus, PolicyVersion, Region
+from app.db.models import Policy, PolicyLifecycleStatus, PolicyVersion, ProcessingStatus, Region
 from app.db.session import get_session
 from app.errors import AppError
 from app.storage import storage_service, validate_pdf
+from app.workflow import policy_processing_workflow
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -68,6 +69,7 @@ async def register_policy(
         policy_id=policy.id,
         version_label=v,
         status=PolicyLifecycleStatus.DRAFT.value,
+        processing_status=ProcessingStatus.PENDING.value,
         effective_from=effective_from,
         effective_to=effective_to,
         storage_path=storage_path,
@@ -89,9 +91,21 @@ async def register_policy(
         "created_at": policy.created_at.isoformat() if policy.created_at else None,
         "version": {
             "id": str(version.id), "policy_id": str(policy.id), "version_label": version.version_label,
-            "status": version.status, "effective_from": version.effective_from.isoformat() if version.effective_from else None,
+            "status": version.status, "processing_status": version.processing_status,
+            "effective_from": version.effective_from.isoformat() if version.effective_from else None,
             "effective_to": version.effective_to.isoformat() if version.effective_to else None,
             "storage_path": version.storage_path, "content_hash": version.content_hash,
             "published_at": None, "published_by": None,
         },
     }
+
+
+@policies_router.post("/{policy_id}/versions/{version_id}/process", status_code=200)
+async def process_policy_version(
+    policy_id: uuid.UUID,
+    version_id: uuid.UUID,
+    _: AuthenticatedUser = Depends(require_hr_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    return await policy_processing_workflow.process_version(session, version_id)
+

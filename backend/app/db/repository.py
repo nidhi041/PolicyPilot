@@ -39,9 +39,12 @@ class PolicyChunkRepository:
             raise ValueError(f"Chunks count ({len(chunks)}) does not match embeddings count ({len(embeddings)})")
 
         instances: list[PolicyChunk] = []
-        for chunk, emb in zip(chunks, embeddings):
+        for seq_idx, (chunk, emb) in enumerate(zip(chunks, embeddings)):
             self.validate_embedding(emb)
-            c_idx = chunk.chunk_index if isinstance(chunk, TextChunk) else int(chunk.get("chunk_index", 0))
+            if isinstance(chunk, dict) and "chunk_index" in chunk:
+                c_idx = int(chunk["chunk_index"])
+            else:
+                c_idx = seq_idx
             p_num = getattr(chunk, "page_number", None) or int(chunk.get("page_number", 1) if isinstance(chunk, dict) else 1)
             c_text = chunk.text if hasattr(chunk, "text") else str(chunk.get("text", ""))
 

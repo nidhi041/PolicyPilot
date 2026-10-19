@@ -89,6 +89,13 @@ class PolicyLifecycleStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class ProcessingStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "draft": {"under_review", "archived"},
     "under_review": {"draft", "published", "archived"},
@@ -136,12 +143,15 @@ class PolicyVersion(Base):
         sa.UniqueConstraint("policy_id", "version_label", name="uq_policy_versions_policy_id_version_label"),
         sa.CheckConstraint("status IN ('draft', 'under_review', 'published', 'archived')", name="ck_policy_versions_status"),
         sa.CheckConstraint("effective_to IS NULL OR effective_from IS NULL OR effective_to >= effective_from", name="ck_policy_versions_effective_dates"),
+        sa.CheckConstraint("processing_status IN ('pending', 'processing', 'completed', 'failed')", name="ck_policy_versions_processing_status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid.uuid4)
     policy_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("policies.id", ondelete="CASCADE"), nullable=False, index=True)
     version_label: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     status: Mapped[str] = mapped_column(sa.String(32), nullable=False, default=PolicyLifecycleStatus.DRAFT.value, server_default=sa.text("'draft'"))
+    processing_status: Mapped[str] = mapped_column(sa.String(32), nullable=False, default=ProcessingStatus.PENDING.value, server_default=sa.text("'pending'"))
+    processing_error: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     effective_from: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     effective_to: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     storage_path: Mapped[str] = mapped_column(sa.String(512), nullable=False)
@@ -155,7 +165,13 @@ class PolicyVersion(Base):
     chunks: Mapped[list[PolicyChunk]] = relationship("PolicyChunk", back_populates="version", cascade="all, delete-orphan", order_by="PolicyChunk.chunk_index")
 
     def __init__(self, **kwargs: Any) -> None:
-        defaults = {"id": uuid.uuid4(), "status": PolicyLifecycleStatus.DRAFT.value, "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)}
+        defaults = {
+            "id": uuid.uuid4(),
+            "status": PolicyLifecycleStatus.DRAFT.value,
+            "processing_status": ProcessingStatus.PENDING.value,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
         super().__init__(**{**defaults, **kwargs})
 
     @validates("status")
@@ -163,6 +179,13 @@ class PolicyVersion(Base):
         val = value.value if isinstance(value, PolicyLifecycleStatus) else value
         if not isinstance(val, str) or val not in PolicyLifecycleStatus._value2member_map_:
             raise ValueError(f"Invalid status: {value!r}")
+        return val
+
+    @validates("processing_status")
+    def validate_processing_status(self, key: str, value: Any) -> str:
+        val = value.value if isinstance(value, ProcessingStatus) else value
+        if not isinstance(val, str) or val not in ProcessingStatus._value2member_map_:
+            raise ValueError(f"Invalid processing_status: {value!r}")
         return val
 
     @validates("effective_from", "effective_to")
