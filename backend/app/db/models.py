@@ -6,6 +6,7 @@ from typing import Any, Optional
 import uuid
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
+from pgvector.sqlalchemy import Vector
 
 
 class Base(DeclarativeBase):
@@ -151,6 +152,7 @@ class PolicyVersion(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now(), onupdate=lambda: datetime.now(timezone.utc))
 
     policy: Mapped[Policy] = relationship("Policy", back_populates="versions")
+    chunks: Mapped[list[PolicyChunk]] = relationship("PolicyChunk", back_populates="version", cascade="all, delete-orphan", order_by="PolicyChunk.chunk_index")
 
     def __init__(self, **kwargs: Any) -> None:
         defaults = {"id": uuid.uuid4(), "status": PolicyLifecycleStatus.DRAFT.value, "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)}
@@ -183,4 +185,29 @@ class PolicyVersion(Base):
             if published_by:
                 self.published_by = published_by
         self.updated_at = datetime.now(timezone.utc)
+
+
+class PolicyChunk(Base):
+    __tablename__ = "policy_chunks"
+    __table_args__ = (
+        sa.UniqueConstraint("policy_version_id", "chunk_index", name="uq_policy_chunks_version_chunk_index"),
+        sa.CheckConstraint("page_number >= 1", name="ck_policy_chunks_page_number"),
+        sa.CheckConstraint("chunk_index >= 0", name="ck_policy_chunks_chunk_index"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid.uuid4)
+    policy_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("policies.id", ondelete="CASCADE"), nullable=False, index=True)
+    policy_version_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("policy_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_number: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    chunk_index: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    char_count: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    embedding = mapped_column(Vector(1536), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now())
+
+    version: Mapped[PolicyVersion] = relationship("PolicyVersion", back_populates="chunks")
+
+    def __init__(self, **kwargs: Any) -> None:
+        defaults = {"id": uuid.uuid4(), "created_at": datetime.now(timezone.utc)}
+        super().__init__(**{**defaults, **kwargs})
 
