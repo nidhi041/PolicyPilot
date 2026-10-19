@@ -20,7 +20,7 @@ class PolicyChunkRepository:
         self.expected_dim = expected_dim or get_settings().embedding_dimensions
 
     def validate_dimensions_match_column(self) -> bool:
-        column_dim = getattr(PolicyChunk.embedding.type, "dim", 1536)
+        column_dim = getattr(PolicyChunk.embedding.type, "dim", 768)
         return self.expected_dim == column_dim
 
     def validate_embedding(self, embedding: list[float]) -> None:

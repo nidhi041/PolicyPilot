@@ -54,7 +54,7 @@ async def test_workflow_success_and_metadata_preservation(sqlite_session):
     sqlite_session.add_all([p, v])
     sqlite_session.commit()
 
-    mock_embed = AsyncMock(return_value=[[0.01] * 1536, [0.02] * 1536])
+    mock_embed = AsyncMock(return_value=[[0.01] * 768, [0.02] * 768])
     workflow = PolicyProcessingWorkflow(extractor=pdf_extractor, embedder=AsyncMock(embed_chunks=mock_embed), repo=policy_chunk_repo)
     res = await workflow.process_version(sqlite_session, v.id, pdf_bytes=make_test_pdf())
 
@@ -62,7 +62,7 @@ async def test_workflow_success_and_metadata_preservation(sqlite_session):
     sqlite_session.refresh(v)
     assert v.processing_status == "completed" and v.processing_error is None and v.status == "draft"
     chunks = sqlite_session.query(PolicyChunk).filter_by(policy_version_id=v.id).order_by(PolicyChunk.chunk_index).all()
-    assert len(chunks) == 2 and chunks[0].page_number == 1 and chunks[1].page_number == 2
+    assert len(chunks) == 2 and chunks[0].page_number == 1 and chunks[1].page_number == 2 and len(chunks[0].embedding) == 768
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_workflow_retry_is_safe_and_idempotent(sqlite_session):
     sqlite_session.add_all([p, v])
     sqlite_session.commit()
 
-    mock_embed = AsyncMock(return_value=[[0.05] * 1536, [0.06] * 1536])
+    mock_embed = AsyncMock(return_value=[[0.05] * 768, [0.06] * 768])
     workflow = PolicyProcessingWorkflow(extractor=pdf_extractor, embedder=AsyncMock(embed_chunks=mock_embed), repo=policy_chunk_repo)
     await workflow.process_version(sqlite_session, v.id, pdf_bytes=make_test_pdf())
     assert sqlite_session.query(PolicyChunk).filter_by(policy_version_id=v.id).count() == 2
