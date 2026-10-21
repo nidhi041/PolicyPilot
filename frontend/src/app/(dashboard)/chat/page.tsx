@@ -2,7 +2,13 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { sendChatMessage, type ChatMessage } from "@/lib/chat";
+import {
+  sendChatMessage,
+  fetchConversations,
+  fetchConversation,
+  type ChatMessage,
+  type ConversationSummary,
+} from "@/lib/chat";
 
 export default function ChatPage() {
   const { session } = useAuth();
@@ -11,12 +17,51 @@ export default function ChatPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, "up" | "down">>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const refreshHistory = async () => {
+    if (!session?.access_token) return;
+    setLoadingHistory(true);
+    setHistoryError(null);
+    try { setConversations(await fetchConversations(session.access_token)); }
+    catch { setHistoryError("Unable to load history"); }
+    finally { setLoadingHistory(false); }
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      await Promise.resolve();
+      if (!active || !session?.access_token) return;
+      setLoadingHistory(true);
+      try { const c = await fetchConversations(session.access_token); if (active) setConversations(c); }
+      catch { if (active) setHistoryError("Unable to load history"); }
+      finally { if (active) setLoadingHistory(false); }
+    })();
+    return () => { active = false; };
+  }, [session]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSubmitting]);
+
+  const selectConversation = async (id: string) => {
+    if (!session?.access_token || isSubmitting) return;
+    setError(null);
+    try {
+      const detail = await fetchConversation(session.access_token, id);
+      setConversationId(id);
+      setMessages(detail.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, citations: m.citations, isGrounded: m.is_grounded })));
+    } catch {
+      setError("Failed to load conversation");
+    }
+  };
+
+  const handleNewChat = () => { setConversationId(undefined); setMessages([]); setError(null); };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -42,6 +87,7 @@ export default function ChatPage() {
         isGrounded: resp.is_grounded,
       };
       setMessages((prev) => [...prev, botMsg]);
+      refreshHistory();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to retrieve policy answer");
     } finally {
@@ -51,6 +97,30 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Conversation History Bar */}
+      <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2 overflow-x-auto text-xs shrink-0">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="font-semibold text-slate-500 uppercase tracking-wider shrink-0">History:</span>
+          {loadingHistory ? <span className="text-slate-400">Loading history...</span> : historyError ? (
+            <span className="text-red-500">{historyError} <button type="button" onClick={refreshHistory} className="underline">Retry</button></span>
+          ) : conversations.length === 0 ? <span className="text-slate-400">No previous chats</span> : (
+            conversations.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => selectConversation(c.id)}
+                className={`px-2 py-1 rounded truncate max-w-[130px] transition-colors ${conversationId === c.id ? "bg-indigo-600 text-white font-medium" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"}`}
+              >
+                {c.title}
+              </button>
+            ))
+          )}
+        </div>
+        <button type="button" onClick={handleNewChat} className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded shrink-0">
+          + New Chat
+        </button>
+      </div>
+
       {/* Messages Thread */}
       <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4">
         {messages.length === 0 ? (

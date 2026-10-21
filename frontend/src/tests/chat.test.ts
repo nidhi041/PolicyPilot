@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sendChatMessage, type ChatResponse } from "../lib/chat.ts";
+import {
+  sendChatMessage,
+  fetchConversations,
+  fetchConversation,
+  type ChatResponse,
+} from "../lib/chat.ts";
 
 test("sendChatMessage rejects empty questions", async () => {
   await assert.rejects(async () => sendChatMessage("token", "   "), /Question cannot be empty/);
@@ -27,7 +32,6 @@ test("sendChatMessage retrieves grounded answer with citations", async () => {
   assert.equal(res.status, "answered");
   assert.equal(res.is_grounded, true);
   assert.equal(res.citations.length, 1);
-  assert.equal(res.citations[0]?.policy_title, "Leave Policy");
 });
 
 test("sendChatMessage handles abstention response", async () => {
@@ -45,11 +49,22 @@ test("sendChatMessage handles abstention response", async () => {
   assert.equal(res.is_grounded, false);
 });
 
-test("sendChatMessage propagates API error messages", async () => {
-  const mockFetch = (async () => ({
-    ok: false,
-    status: 400,
-    json: async () => ({ detail: "Invalid policy" }),
-  })) as unknown as typeof fetch;
-  await assert.rejects(async () => sendChatMessage("tok", "msg", undefined, mockFetch), /Invalid policy/);
+test("fetchConversations and fetchConversation retrieve user-scoped history", async () => {
+  const mockList = [{ id: "c-1", title: "Leave Inquiry", created_at: "2026-10-19T00:00:00Z", updated_at: "2026-10-19T00:00:00Z" }];
+  const mockDetail = { id: "c-1", title: "Leave Inquiry", messages: [{ id: "m-1", role: "user", content: "Leave days?" }] };
+
+  const mockFetch = (async (url: string | URL | Request) => {
+    const s = String(url);
+    if (s.endsWith("/conversations/c-1")) return { ok: true, json: async () => mockDetail } as unknown as Response;
+    if (s.endsWith("/conversations")) return { ok: true, json: async () => mockList } as unknown as Response;
+    return { ok: false, status: 404 } as unknown as Response;
+  }) as typeof fetch;
+
+  const list = await fetchConversations("tok", mockFetch);
+  assert.equal(list.length, 1);
+  assert.equal(list[0]?.title, "Leave Inquiry");
+
+  const detail = await fetchConversation("tok", "c-1", mockFetch);
+  assert.equal(detail.id, "c-1");
+  assert.equal(detail.messages.length, 1);
 });

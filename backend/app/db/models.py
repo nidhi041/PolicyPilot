@@ -234,3 +234,31 @@ class PolicyChunk(Base):
         defaults = {"id": uuid.uuid4(), "created_at": datetime.now(timezone.utc)}
         super().__init__(**{**defaults, **kwargs})
 
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now(), onupdate=lambda: datetime.now(timezone.utc))
+
+    messages: Mapped[list[Message]] = relationship("Message", back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at.asc()")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    content: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    status: Mapped[Optional[str]] = mapped_column(sa.String(32), nullable=True)
+    citations = mapped_column(sa.JSON, nullable=True)
+    is_grounded: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True, server_default=sa.text("true"))
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now())
+
+    conversation: Mapped[Conversation] = relationship("Conversation", back_populates="messages")
+
+
