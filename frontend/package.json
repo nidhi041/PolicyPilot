@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "type:check": "tsc --noEmit",
-    "test": "tsc --noEmit && eslint && node --test --experimental-strip-types src/tests/navigation.test.ts",
+    "test": "tsc --noEmit && eslint && node --test --experimental-strip-types \"src/tests/**/*.test.ts\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
