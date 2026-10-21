@@ -40,3 +40,19 @@ export async function publishPolicyVersion(token: string, pid: string, vid: stri
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to publish policy version");
   return res.json();
 }
+export async function fetchPolicyDetail(token: string, pid: string, fetchFn = fetch): Promise<Policy> {
+  const res = await fetchFn(`${getBaseUrl()}/api/v1/policies/${pid}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to load policy detail");
+  return res.json();
+}
+export async function replacePolicyVersion(token: string, pid: string, form: FormData, fetchFn = fetch): Promise<PolicyVersion> {
+  const res = await fetchFn(`${getBaseUrl()}/api/v1/policies/${pid}/versions`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to replace version");
+  return res.json();
+}
+export async function archivePolicyVersion(token: string, pid: string, vid: string, fetchFn = fetch): Promise<PolicyVersion> {
+  const res = await fetchFn(`${getBaseUrl()}/api/v1/policies/${pid}/versions/${vid}/archive`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to archive version");
+  return res.json();
+}
+
