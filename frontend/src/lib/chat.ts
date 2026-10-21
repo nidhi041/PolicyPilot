@@ -1,13 +1,10 @@
 export interface Citation { policy_title: string; version: string; page_number: number; quote?: string | null; }
 export interface ChatResponse { conversation_id: string; status: string; answer: string; citations: Citation[]; is_grounded: boolean; confidence: string; }
 export interface ChatMessage { id: string; role: "user" | "assistant"; content: string; status?: string; citations?: Citation[]; isGrounded?: boolean; }
+export interface ConversationSummary { id: string; title: string; created_at: string; updated_at: string; }
+export interface ConversationDetail { id: string; title: string; messages: { id: string; role: "user" | "assistant"; content: string; status?: string; citations?: Citation[]; is_grounded?: boolean; }[]; }
 
-export async function sendChatMessage(
-  token: string,
-  message: string,
-  conversationId?: string,
-  fetchFn = fetch,
-): Promise<ChatResponse> {
+export async function sendChatMessage(token: string, message: string, conversationId?: string, fetchFn = fetch): Promise<ChatResponse> {
   const clean = message.trim();
   if (!clean) throw new Error("Question cannot be empty");
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -20,5 +17,19 @@ export async function sendChatMessage(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || err.message || `Chat request failed (${res.status})`);
   }
+  return res.json();
+}
+
+export async function fetchConversations(token: string, fetchFn = fetch): Promise<ConversationSummary[]> {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const res = await fetchFn(`${base}/api/v1/conversations`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error("Failed to load conversations");
+  return res.json();
+}
+
+export async function fetchConversation(token: string, id: string, fetchFn = fetch): Promise<ConversationDetail> {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const res = await fetchFn(`${base}/api/v1/conversations/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error("Failed to load conversation");
   return res.json();
 }

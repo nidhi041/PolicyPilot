@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import auth_router
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.chat import chat_router
+from app.chat import chat_router, conversations_router
 from app.policies import policies_router
 from app.search import search_router
 from app.storage import storage_router
@@ -40,6 +40,8 @@ def create_app() -> FastAPI:
     app.include_router(search_router, prefix=settings.api_prefix)
     app.include_router(chat_router)
     app.include_router(chat_router, prefix=settings.api_prefix)
+    app.include_router(conversations_router)
+    app.include_router(conversations_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.api_prefix}/health", tags=["Health"])

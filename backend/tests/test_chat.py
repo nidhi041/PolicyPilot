@@ -116,3 +116,28 @@ def test_chat_abstention_on_fabricated_citation(test_db, monkeypatch):
     data = res.json()
     assert data["status"] == "abstention" and data["is_grounded"] is False
     assert len(data["citations"]) == 0
+
+
+def test_conversation_persistence_and_user_ownership(test_db, monkeypatch):
+    client_a = create_client(test_db, monkeypatch, make_user())
+    client_b = create_client(test_db, monkeypatch, make_user())
+
+    with patch("app.chat.embedding_service.embed_texts", new=AsyncMock(return_value=[[0.01] * 768])):
+        res = client_a.post("/api/v1/chat", json={"message": "What is company policy?"})
+    assert res.status_code == 200
+    conv_id = res.json()["conversation_id"]
+
+    list_a = client_a.get("/api/v1/conversations").json()
+    assert len(list_a) == 1 and list_a[0]["id"] == conv_id
+
+    detail_a = client_a.get(f"/api/v1/conversations/{conv_id}").json()
+    assert detail_a["id"] == conv_id and len(detail_a["messages"]) == 2
+    assert [m["role"] for m in detail_a["messages"]] == ["user", "assistant"]
+
+    assert client_b.get("/api/v1/conversations").json() == []
+    assert client_b.get(f"/api/v1/conversations/{conv_id}").status_code == 403
+
+    with patch("app.chat.embedding_service.embed_texts", new=AsyncMock(return_value=[[0.01] * 768])):
+        append_res = client_b.post("/api/v1/chat", json={"message": "Hacking?", "conversation_id": conv_id})
+    assert append_res.status_code == 403
+
