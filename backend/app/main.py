@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.analytics import analytics_router
 from app.auth import auth_router
 from app.config import get_settings
 from app.errors import register_error_handlers
@@ -42,6 +43,8 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, prefix=settings.api_prefix)
     app.include_router(conversations_router)
     app.include_router(conversations_router, prefix=settings.api_prefix)
+    app.include_router(analytics_router)
+    app.include_router(analytics_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.api_prefix}/health", tags=["Health"])
