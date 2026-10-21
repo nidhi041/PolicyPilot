@@ -4,6 +4,7 @@ import {
   sendChatMessage,
   fetchConversations,
   fetchConversation,
+  submitMessageFeedback,
   type ChatResponse,
 } from "../lib/chat.ts";
 
@@ -67,4 +68,32 @@ test("fetchConversations and fetchConversation retrieve user-scoped history", as
   const detail = await fetchConversation("tok", "c-1", mockFetch);
   assert.equal(detail.id, "c-1");
   assert.equal(detail.messages.length, 1);
+});
+
+test("submitMessageFeedback sends rating and handles success and errors", async () => {
+  const mockFetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const s = String(url);
+    assert.match(s, /\/api\/v1\/chat\/messages\/m-123\/feedback/);
+    assert.equal((init?.headers as Record<string, string>)["Authorization"], "Bearer tok");
+    assert.equal(JSON.parse(String(init?.body)).rating, "up");
+    return {
+      ok: true,
+      json: async () => ({ id: "fb-1", message_id: "m-123", rating: "up", user_id: "u-1" }),
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  const res = await submitMessageFeedback("tok", "m-123", "up", mockFetch);
+  assert.equal(res.rating, "up");
+  assert.equal(res.message_id, "m-123");
+
+  const failFetch = (async () => ({
+    ok: false,
+    status: 403,
+    json: async () => ({ detail: "Unauthorized to rate this message" }),
+  })) as unknown as typeof fetch;
+
+  await assert.rejects(
+    async () => submitMessageFeedback("tok", "m-123", "down", failFetch),
+    /Unauthorized to rate this message/
+  );
 });

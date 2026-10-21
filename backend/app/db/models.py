@@ -260,5 +260,23 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now())
 
     conversation: Mapped[Conversation] = relationship("Conversation", back_populates="messages")
+    feedback: Mapped[list[MessageFeedback]] = relationship("MessageFeedback", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageFeedback(Base):
+    __tablename__ = "message_feedback"
+    __table_args__ = (
+        sa.UniqueConstraint("message_id", "user_id", name="uq_message_feedback_message_user"),
+        sa.CheckConstraint("rating IN ('up', 'down')", name="ck_message_feedback_rating"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False, index=True)
+    rating: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), server_default=sa.func.now(), onupdate=lambda: datetime.now(timezone.utc))
+
+    message: Mapped[Message] = relationship("Message", back_populates="feedback")
 
 

@@ -6,6 +6,7 @@ import {
   sendChatMessage,
   fetchConversations,
   fetchConversation,
+  submitMessageFeedback,
   type ChatMessage,
   type ConversationSummary,
 } from "@/lib/chat";
@@ -55,9 +56,24 @@ export default function ChatPage() {
     try {
       const detail = await fetchConversation(session.access_token, id);
       setConversationId(id);
-      setMessages(detail.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, citations: m.citations, isGrounded: m.is_grounded })));
+      setMessages(detail.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, citations: m.citations, isGrounded: m.is_grounded, feedback: m.feedback })));
+      const initialFb: Record<string, "up" | "down"> = {};
+      detail.messages.forEach((m) => {
+        if (m.feedback === "up" || m.feedback === "down") initialFb[m.id] = m.feedback;
+      });
+      setFeedback(initialFb);
     } catch {
       setError("Failed to load conversation");
+    }
+  };
+
+  const handleFeedbackRating = async (messageId: string, rating: "up" | "down") => {
+    if (!session?.access_token) return;
+    try {
+      await submitMessageFeedback(session.access_token, messageId, rating);
+      setFeedback((f) => ({ ...f, [messageId]: rating }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to record feedback");
     }
   };
 
@@ -79,7 +95,7 @@ export default function ChatPage() {
       const resp = await sendChatMessage(token, clean, conversationId);
       setConversationId(resp.conversation_id);
       const botMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
+        id: resp.message_id || `a-${Date.now()}`,
         role: "assistant",
         content: resp.answer,
         status: resp.status,
@@ -186,16 +202,16 @@ export default function ChatPage() {
                       <span>Was this helpful?</span>
                       <button
                         type="button"
-                        onClick={() => setFeedback((f) => ({ ...f, [msg.id]: "up" }))}
-                        className="hover:text-slate-700 px-1 rounded"
+                        onClick={() => handleFeedbackRating(msg.id, "up")}
+                        className="hover:text-slate-700 px-1 rounded transition-colors"
                         aria-label="Mark helpful"
                       >
                         👍
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFeedback((f) => ({ ...f, [msg.id]: "down" }))}
-                        className="hover:text-slate-700 px-1 rounded"
+                        onClick={() => handleFeedbackRating(msg.id, "down")}
+                        className="hover:text-slate-700 px-1 rounded transition-colors"
                         aria-label="Mark unhelpful"
                       >
                         👎
