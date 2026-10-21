@@ -141,3 +141,67 @@ def test_conversation_persistence_and_user_ownership(test_db, monkeypatch):
         append_res = client_b.post("/api/v1/chat", json={"message": "Hacking?", "conversation_id": conv_id})
     assert append_res.status_code == 403
 
+
+def test_chat_feedback_persistence_and_ownership(test_db, monkeypatch):
+    user_a = make_user()
+    user_b = make_user()
+    client_a = create_client(test_db, monkeypatch, user_a)
+    client_b = create_client(test_db, monkeypatch, user_b)
+
+    with patch("app.chat.embedding_service.embed_texts", new=AsyncMock(return_value=[[0.01] * 768])):
+        chat_res = client_a.post("/api/v1/chat", json={"message": "Tell me about parental leave"})
+    assert chat_res.status_code == 200
+    conv_id = chat_res.json()["conversation_id"]
+    asst_msg_id = chat_res.json()["message_id"]
+    assert asst_msg_id is not None
+
+    conv_detail = client_a.get(f"/api/v1/conversations/{conv_id}").json()
+    user_msg_id = [m["id"] for m in conv_detail["messages"] if m["role"] == "user"][0]
+
+    # 1. Unauthenticated rating fails
+    client_anon = create_client(test_db, monkeypatch)
+    assert client_anon.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": "up"}).status_code == 401
+
+    # 2. Invalid rating values fail
+    for invalid_rating in ["", "super", "5-stars", "neutral"]:
+        res_inv = client_a.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": invalid_rating})
+        assert res_inv.status_code == 400
+
+    # 3. Nonexistent message fails
+    fake_msg_id = uuid.uuid4()
+    assert client_a.post(f"/api/v1/chat/messages/{fake_msg_id}/feedback", json={"rating": "up"}).status_code == 404
+
+    # 4. Rating a user role message fails
+    res_user_msg = client_a.post(f"/api/v1/chat/messages/{user_msg_id}/feedback", json={"rating": "up"})
+    assert res_user_msg.status_code == 400
+
+    # 5. Ownership violation: User B cannot rate User A's answer
+    res_steal = client_b.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": "down"})
+    assert res_steal.status_code == 403
+
+    # 6. User A rates their answer "up"
+    res_fb1 = client_a.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": "up"})
+    assert res_fb1.status_code == 200
+    fb_data = res_fb1.json()
+    assert fb_data["rating"] == "up"
+    assert fb_data["message_id"] == asst_msg_id
+    assert fb_data["user_id"] == str(user_a.user.id)
+
+    # 7. Verify feedback is reflected in conversation detail
+    detail_with_fb = client_a.get(f"/api/v1/conversations/{conv_id}").json()
+    asst_msg_item = [m for m in detail_with_fb["messages"] if m["id"] == asst_msg_id][0]
+    assert asst_msg_item["feedback"] == "up"
+
+    # 8. User A updates their rating to "down" (upsert modification)
+    res_fb2 = client_a.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": "down"})
+    assert res_fb2.status_code == 200
+    assert res_fb2.json()["rating"] == "down"
+    assert res_fb2.json()["id"] == fb_data["id"]
+
+    detail_updated = client_a.get(f"/api/v1/conversations/{conv_id}").json()
+    asst_msg_updated = [m for m in detail_updated["messages"] if m["id"] == asst_msg_id][0]
+    assert asst_msg_updated["feedback"] == "down"
+
+    # 9. User B still sees no access or modification rights
+    assert client_b.post(f"/api/v1/chat/messages/{asst_msg_id}/feedback", json={"rating": "up"}).status_code == 403
+

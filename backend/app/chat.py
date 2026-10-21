@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser, require_authenticated_user
 from app.citations import citation_validation_service
-from app.db.models import Conversation, Message
+from app.db.models import Conversation, Message, MessageFeedback
 from app.db.repository import policy_chunk_repo
 from app.embeddings import embedding_service
 from app.errors import AppError
@@ -32,11 +32,25 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
+    message_id: Optional[uuid.UUID] = None
     status: str = Field(..., description="Answer status: 'answered' or 'abstention'")
     answer: str
     citations: list[Citation] = Field(default_factory=list)
     is_grounded: bool
     confidence: str
+
+
+class FeedbackRequest(BaseModel):
+    rating: str = Field(..., description="Rating: 'up' or 'down'")
+
+
+class FeedbackResponse(BaseModel):
+    id: uuid.UUID
+    message_id: uuid.UUID
+    user_id: uuid.UUID
+    rating: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class MessageItem(BaseModel):
@@ -46,6 +60,7 @@ class MessageItem(BaseModel):
     status: Optional[str] = None
     citations: list[Citation] = Field(default_factory=list)
     is_grounded: bool = True
+    feedback: Optional[str] = None
     created_at: datetime
 
 
@@ -106,14 +121,49 @@ async def chat_message(
         ver = citation_validation_service.verify_answer(raw, val.qualified_chunks)
         status, ans, cits, grounded, conf = ("answered" if ver.is_grounded else "abstention"), ver.answer, ver.citations, ver.is_grounded, ver.confidence
 
+    asst_msg_id = uuid.uuid4()
     session.add(Message(
-        id=uuid.uuid4(), conversation_id=conv_id, role="assistant", content=ans,
+        id=asst_msg_id, conversation_id=conv_id, role="assistant", content=ans,
         status=status, citations=[c.model_dump() for c in cits], is_grounded=grounded,
     ))
     conv.updated_at = datetime.now(timezone.utc)
     await _maybe_await(session.commit())
 
-    return ChatResponse(conversation_id=conv_id, status=status, answer=ans, citations=cits, is_grounded=grounded, confidence=conf)
+    return ChatResponse(conversation_id=conv_id, message_id=asst_msg_id, status=status, answer=ans, citations=cits, is_grounded=grounded, confidence=conf)
+
+
+@chat_router.post("/messages/{message_id}/feedback", response_model=FeedbackResponse)
+async def rate_message(
+    message_id: uuid.UUID,
+    request: FeedbackRequest,
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> FeedbackResponse:
+    clean_rating = (request.rating or "").strip().lower()
+    if clean_rating not in ("up", "down"):
+        raise AppError("Rating must be 'up' or 'down'", 400, "INVALID_RATING")
+
+    msg = (await _maybe_await(session.execute(select(Message).where(Message.id == message_id)))).scalar_one_or_none()
+    if not msg:
+        raise AppError("Message not found", 404, "NOT_FOUND")
+    if msg.role != "assistant":
+        raise AppError("Feedback can only be submitted for assistant answers", 400, "INVALID_TARGET_MESSAGE")
+
+    conv = (await _maybe_await(session.execute(select(Conversation).where(Conversation.id == msg.conversation_id)))).scalar_one_or_none()
+    if not conv or conv.user_id != current_user.user.id:
+        raise AppError("Unauthorized to rate this message", 403, "FORBIDDEN")
+
+    fb = (await _maybe_await(session.execute(select(MessageFeedback).where(MessageFeedback.message_id == message_id, MessageFeedback.user_id == current_user.user.id)))).scalar_one_or_none()
+    now = datetime.now(timezone.utc)
+    if fb:
+        fb.rating = clean_rating
+        fb.updated_at = now
+    else:
+        fb = MessageFeedback(id=uuid.uuid4(), message_id=message_id, user_id=current_user.user.id, rating=clean_rating, created_at=now, updated_at=now)
+        session.add(fb)
+
+    await _maybe_await(session.commit())
+    return FeedbackResponse(id=fb.id, message_id=fb.message_id, user_id=fb.user_id, rating=fb.rating, created_at=fb.created_at, updated_at=fb.updated_at)
 
 
 @conversations_router.get("", response_model=list[ConversationSummary])
@@ -136,5 +186,8 @@ async def get_conversation(
     if not conv or conv.user_id != current_user.user.id:
         raise AppError("Conversation not found" if not conv else "Unauthorized", 404 if not conv else 403, "NOT_FOUND" if not conv else "FORBIDDEN")
     msg_res = await _maybe_await(session.execute(select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.asc())))
-    msgs = [MessageItem(id=m.id, role=m.role, content=m.content, status=m.status, citations=[Citation(**c) for c in (m.citations or [])], is_grounded=m.is_grounded, created_at=m.created_at) for m in msg_res.scalars().all()]
+    raw_msgs = list(msg_res.scalars().all())
+    fb_res = await _maybe_await(session.execute(select(MessageFeedback).where(MessageFeedback.user_id == current_user.user.id)))
+    fb_map = {f.message_id: f.rating for f in fb_res.scalars().all()}
+    msgs = [MessageItem(id=m.id, role=m.role, content=m.content, status=m.status, citations=[Citation(**c) for c in (m.citations or [])], is_grounded=m.is_grounded, feedback=fb_map.get(m.id), created_at=m.created_at) for m in raw_msgs]
     return ConversationDetail(id=conv.id, title=conv.title, created_at=conv.created_at, updated_at=conv.updated_at, messages=msgs)
