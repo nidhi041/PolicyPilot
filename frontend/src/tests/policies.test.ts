@@ -9,6 +9,7 @@ import {
   fetchPolicyDetail,
   replacePolicyVersion,
   archivePolicyVersion,
+  downloadPolicyPdf,
 } from "../lib/policies.ts";
 
 test("fetchPolicies constructs query parameters and returns policies", async () => {
@@ -63,5 +64,32 @@ test("replacePolicyVersion, archivePolicyVersion, and fetchPolicyDetail handle s
   assert.match(String(calls[1]), /POST .*\/p-1\/versions\/v-1\/archive/);
   assert.match(String(calls[2]), /GET .*\/p-1/);
   await assert.rejects(async () => fetchPolicyDetail("bad-tok", "unauthorized", mockFetch), /Forbidden/);
+});
+
+test("downloadPolicyPdf fetches blob with authentication and handles errors", async () => {
+  const mockFetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const s = String(url);
+    assert.match(s, /\/api\/v1\/storage\/policies\/policies\/global\/test\.pdf\/download/);
+    assert.equal((init?.headers as Record<string, string>)["Authorization"], "Bearer valid-token");
+    return {
+      ok: true,
+      blob: async () => new Blob(["%PDF-1.4 test"], { type: "application/pdf" }),
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  const blob = await downloadPolicyPdf("valid-token", "policies/global/test.pdf", mockFetch);
+  assert.equal(blob.type, "application/pdf");
+  assert.equal(blob.size, 13);
+
+  const failFetch = (async () => ({
+    ok: false,
+    status: 404,
+    json: async () => ({ detail: "File not found in storage" }),
+  })) as unknown as typeof fetch;
+
+  await assert.rejects(
+    async () => downloadPolicyPdf("valid-token", "missing.pdf", failFetch),
+    /File not found in storage/
+  );
 });
 
