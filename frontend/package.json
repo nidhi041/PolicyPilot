@@ -1,14 +1,14 @@
 {
   "name": "policypilot-frontend",
   "version": "0.1.0",
-  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "type:check": "tsc --noEmit",
-    "test": "tsc --noEmit && eslint",
+    "test": "tsc --noEmit && eslint && node --test --experimental-strip-types src/tests/navigation.test.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
