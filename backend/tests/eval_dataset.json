@@ -1,0 +1,86 @@
+[
+  {
+    "id": "eval-01-us-parental-leave",
+    "question": "How many weeks of paid parental leave do US employees receive?",
+    "applicable_region": "US",
+    "expected_outcome": "answered",
+    "expected_verdict": "sufficient",
+    "policy_title": "US Parental Leave Policy",
+    "version": "1.0",
+    "page_number": 1,
+    "quote": "12 weeks of fully paid parental leave",
+    "passage_text": "Employees in the United States are entitled to 12 weeks of fully paid parental leave upon the birth or adoption of a child."
+  },
+  {
+    "id": "eval-02-eu-vacation-carryover",
+    "question": "How many unused vacation days can EU employees carry over?",
+    "applicable_region": "EU",
+    "expected_outcome": "answered",
+    "expected_verdict": "sufficient",
+    "policy_title": "EU Time Off Policy",
+    "version": "2.0",
+    "page_number": 2,
+    "quote": "up to 5 unused vacation days may be carried over",
+    "passage_text": "Under the EU Working Time Directive guidelines, up to 5 unused vacation days may be carried over into the following calendar year."
+  },
+  {
+    "id": "eval-03-global-code-conduct",
+    "question": "What is the policy regarding outside employment?",
+    "applicable_region": "GLOBAL",
+    "expected_outcome": "answered",
+    "expected_verdict": "sufficient",
+    "policy_title": "Global Code of Conduct",
+    "version": "1.0",
+    "page_number": 1,
+    "quote": "must disclose and obtain written approval from HR",
+    "passage_text": "All employees engaging in secondary outside employment must disclose and obtain written approval from HR to prevent conflicts of interest."
+  },
+  {
+    "id": "eval-04-regional-isolation-violation",
+    "question": "What is the EU statutory severance calculation?",
+    "applicable_region": "US",
+    "expected_outcome": "abstention",
+    "expected_verdict": "insufficient_evidence",
+    "policy_title": "EU Severance Policy",
+    "version": "1.0",
+    "page_number": 1,
+    "quote": "2 months of salary per year of tenure",
+    "passage_text": "EU statutory severance provides 2 months of salary per year of tenure for eligible European personnel."
+  },
+  {
+    "id": "eval-05-out-of-scope-insufficient-evidence",
+    "question": "Does the company provide dog walking and pet adoption stipends?",
+    "applicable_region": "US",
+    "expected_outcome": "abstention",
+    "expected_verdict": "insufficient_evidence",
+    "policy_title": null,
+    "version": null,
+    "page_number": null,
+    "quote": null,
+    "passage_text": null
+  },
+  {
+    "id": "eval-06-hallucinated-citation",
+    "question": "Can I take a 6-month unpaid sabbatical?",
+    "applicable_region": "GLOBAL",
+    "expected_outcome": "abstention",
+    "expected_verdict": "sufficient",
+    "policy_title": "Global Leave Policy",
+    "version": "1.0",
+    "page_number": 1,
+    "quote": "hallucinated quote not in policy",
+    "passage_text": "Unpaid personal leave may be requested for extenuating circumstances up to 30 calendar days."
+  },
+  {
+    "id": "eval-07-conflicting-directives",
+    "question": "Is remote work permitted on weekends?",
+    "applicable_region": "GLOBAL",
+    "expected_outcome": "abstention",
+    "expected_verdict": "conflicting_passages",
+    "policy_title": "Remote Work Guidelines",
+    "version": "1.0",
+    "page_number": 1,
+    "quote": null,
+    "passage_text": "Weekend remote work is strictly prohibited and ineligible under any circumstance. Meanwhile, remote work is permitted for all staff on weekends."
+  }
+]
