@@ -2,6 +2,7 @@ export interface PolicyVersion {
   id: string; policy_id: string; version_label: string;
   status: "draft" | "under_review" | "published" | "archived";
   processing_status: "pending" | "processing" | "completed" | "failed";
+  storage_path?: string;
   processing_error?: string | null; effective_from?: string | null; effective_to?: string | null; created_at?: string | null;
 }
 export interface Policy {
@@ -54,5 +55,14 @@ export async function archivePolicyVersion(token: string, pid: string, vid: stri
   const res = await fetchFn(`${getBaseUrl()}/api/v1/policies/${pid}/versions/${vid}/archive`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to archive version");
   return res.json();
+}
+
+export async function downloadPolicyPdf(token: string, storagePath: string, fetchFn = fetch): Promise<Blob> {
+  const clean = storagePath.replace(/^\/+/, "");
+  const res = await fetchFn(`${getBaseUrl()}/api/v1/storage/policies/${clean}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Failed to download PDF (${res.status})`);
+  return res.blob();
 }
 

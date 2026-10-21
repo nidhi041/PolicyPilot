@@ -10,6 +10,7 @@ import {
   publishPolicyVersion,
   replacePolicyVersion,
   archivePolicyVersion,
+  downloadPolicyPdf,
   type Policy,
 } from "@/lib/policies";
 
@@ -26,6 +27,7 @@ export default function PoliciesPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceFileRef = useRef<HTMLInputElement>(null);
 
@@ -97,6 +99,21 @@ export default function PoliciesPage() {
     try { await action(); await loadData(); }
     catch (err) { setError(err instanceof Error ? err.message : "Action failed"); }
     finally { setBusyId(null); }
+  };
+
+  const handleViewPdf = async (storagePath?: string) => {
+    if (!session?.access_token || !storagePath || downloadingPath) return;
+    setDownloadingPath(storagePath);
+    setError(null);
+    try {
+      const blob = await downloadPolicyPdf(session.access_token, storagePath);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open PDF document");
+    } finally {
+      setDownloadingPath(null);
+    }
   };
 
   return (
@@ -171,6 +188,18 @@ export default function PoliciesPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {v?.storage_path && (
+                        <button
+                          type="button"
+                          disabled={downloadingPath === v.storage_path}
+                          onClick={() => handleViewPdf(v.storage_path)}
+                          className="px-2 py-1 text-xs font-medium rounded border border-indigo-200 bg-indigo-50/60 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 flex items-center gap-1"
+                          title="Open uploaded PDF in new tab"
+                        >
+                          <span>📄</span>
+                          <span>{downloadingPath === v.storage_path ? "Loading..." : "View PDF"}</span>
+                        </button>
+                      )}
                       <button type="button" onClick={() => setReplacingId(replacingId === p.id ? null : p.id)} className="px-2.5 py-1 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100">
                         {replacingId === p.id ? "Cancel" : "+ New Version"}
                       </button>
@@ -204,6 +233,17 @@ export default function PoliciesPage() {
                               <span className={`px-1.5 py-0.5 rounded font-medium ${ver.processing_status === "completed" ? "bg-emerald-50 text-emerald-700" : ver.processing_status === "failed" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>Processing: {ver.processing_status}</span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
+                              {ver.storage_path && (
+                                <button
+                                  type="button"
+                                  disabled={downloadingPath === ver.storage_path}
+                                  onClick={() => handleViewPdf(ver.storage_path)}
+                                  className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium disabled:opacity-50"
+                                  title="Open version PDF"
+                                >
+                                  {downloadingPath === ver.storage_path ? "Loading..." : "📄 View PDF"}
+                                </button>
+                              )}
                               {ver.processing_status !== "completed" && ver.status !== "archived" && (
                                 <button type="button" disabled={isBusy} onClick={() => handleAction(() => processPolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50">{isBusy ? "Processing..." : "Process"}</button>
                               )}
