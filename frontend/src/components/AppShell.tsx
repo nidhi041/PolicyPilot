@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { NAV_ITEMS, getPageTitle } from "./nav-config";
+import { usePathname, useRouter } from "next/navigation";
+import { getPageTitle, canAccessRoute, getVisibleNavItems } from "./nav-config";
+import { useAuth } from "@/context/AuthContext";
 
 export interface AppShellProps {
   children: ReactNode;
@@ -18,6 +19,12 @@ export function AppShell({
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname() || "";
+  const router = useRouter();
+  const { session, profile, user, isLoading, signOut } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !session) router.push("/login");
+  }, [isLoading, session, router]);
 
   // Close drawer on Escape key
   useEffect(() => {
@@ -28,7 +35,21 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!session) return null;
+
+  const isHr = Boolean(profile?.is_hr_administrator);
+  const allowed = canAccessRoute(pathname, true, isHr);
+  const visibleNav = getVisibleNavItems(isHr);
   const pageTitle = getPageTitle(pathname);
+  const region = profile?.region || activeRegion;
+  const role = profile?.role || userRole;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row antialiased">
@@ -67,7 +88,7 @@ export function AppShell({
         </div>
 
         <nav aria-label="Main Navigation" className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {visibleNav.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
@@ -94,13 +115,16 @@ export function AppShell({
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Jurisdiction</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-              {activeRegion}
+              {region}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Role</span>
-            <span className="font-medium text-slate-700">{userRole}</span>
+            <span className="font-medium text-slate-700 capitalize">{role.replace("_", " ")}</span>
           </div>
+          <button type="button" onClick={() => signOut()} className="w-full mt-2 px-3 py-1 text-xs text-slate-600 hover:text-red-700 rounded border border-slate-200">
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -127,20 +151,24 @@ export function AppShell({
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-              Region: {activeRegion}
+              Region: {region}
             </span>
-            <div
-              className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center border border-indigo-200"
-              aria-label="User profile avatar"
-            >
-              PP
-            </div>
+            <span className="text-xs text-slate-600 hidden md:inline">{user?.email}</span>
+            <button type="button" onClick={() => signOut()} className="text-xs text-slate-500 hover:text-red-600 px-2 py-1 rounded hover:bg-slate-100">
+              Sign Out
+            </button>
           </div>
         </header>
 
         {/* Workspace Content */}
         <main id="app-workspace" className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
-          {children}
+          {allowed ? children : (
+            <div className="p-8 max-w-lg mx-auto bg-white rounded-xl border border-red-200 text-center space-y-2">
+              <h2 className="text-base font-semibold text-slate-900">Access Restricted</h2>
+              <p className="text-xs text-slate-600">HR Administrator privileges required. Backend authorization boundaries are enforced.</p>
+              <Link href="/chat" className="inline-block px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg">Return to Employee Chat</Link>
+            </div>
+          )}
         </main>
       </div>
     </div>
