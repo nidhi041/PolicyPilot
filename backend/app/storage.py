@@ -5,10 +5,16 @@ from pathlib import Path
 import re
 from typing import Any, Optional
 import uuid
+from collections.abc import AsyncGenerator
+import inspect
 from fastapi import APIRouter, Depends, File, Response, UploadFile
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser, require_authenticated_user, require_hr_admin
 from app.config import Settings, get_settings
+from app.db.models import Policy, PolicyLifecycleStatus, PolicyVersion, Region
+from app.db.session import get_session
 from app.errors import AppError
 
 
@@ -109,16 +115,56 @@ storage_service = StorageService()
 storage_router = APIRouter(prefix="/storage", tags=["Storage"])
 
 
+async def _maybe_await(val: Any) -> Any:
+    return await val if inspect.isawaitable(val) else val
+
+
+async def get_optional_db_session() -> AsyncGenerator[Optional[AsyncSession], None]:
+    if not get_settings().database_url:
+        yield None
+    else:
+        async for s in get_session():
+            yield s
+
+
+async def authorize_document_access(session: Any, storage_path: str, user: AuthenticatedUser) -> None:
+    if user.profile.is_hr_administrator or session is None:
+        return
+    stmt = (
+        select(PolicyVersion.status, Policy.region)
+        .join(Policy, PolicyVersion.policy_id == Policy.id)
+        .where(PolicyVersion.storage_path == storage_path)
+    )
+    res = (await _maybe_await(session.execute(stmt))).first()
+    if not res:
+        raise AppError("Document not found", 404, "NOT_FOUND")
+    status, region = res
+    if status != PolicyLifecycleStatus.PUBLISHED.value:
+        raise AppError("Forbidden: Document version is not published", 403, "FORBIDDEN")
+    if region not in (user.profile.region, Region.GLOBAL.value):
+        raise AppError("Forbidden: Document outside authorized region", 403, "FORBIDDEN")
+
+
 @storage_router.post("/policies/upload")
 async def upload_policy(file: UploadFile = File(...), _: AuthenticatedUser = Depends(require_hr_admin)) -> dict[str, Any]:
     return await storage_service.upload_pdf(await file.read(), filename=file.filename or "policy.pdf")
 
 
 @storage_router.get("/policies/{path:path}/signed-url")
-async def get_policy_signed_url(path: str, _: AuthenticatedUser = Depends(require_authenticated_user)) -> dict[str, Any]:
+async def get_policy_signed_url(
+    path: str,
+    user: AuthenticatedUser = Depends(require_authenticated_user),
+    session: Any = Depends(get_optional_db_session),
+) -> dict[str, Any]:
+    await authorize_document_access(session, path, user)
     return await storage_service.create_signed_url(path)
 
 
 @storage_router.get("/policies/{path:path}/download")
-async def download_policy(path: str, _: AuthenticatedUser = Depends(require_authenticated_user)) -> Response:
+async def download_policy(
+    path: str,
+    user: AuthenticatedUser = Depends(require_authenticated_user),
+    session: Any = Depends(get_optional_db_session),
+) -> Response:
+    await authorize_document_access(session, path, user)
     return Response(content=await storage_service.download_pdf(path), media_type="application/pdf", headers={"Content-Disposition": "inline"})
