@@ -1,121 +1,163 @@
 # PolicyPilot AI
-### AI-Powered, Region-Aware HR Policy Assistant
+### Enterprise AI-Powered, Region-Aware HR Policy Assistant
 
-PolicyPilot AI is an AI-powered HR policy assistant that helps employees get accurate, context-aware answers to company policy questions without manually searching lengthy documents or repeatedly contacting HR teams.
+PolicyPilot AI is a trustworthy HR policy assistant that enables employees to obtain accurate, context-aware answers to workplace policy questions with verifiable citations, regional boundaries, and automated policy lifecycle management.
 
-Unlike generic AI chatbots, PolicyPilot AI retrieves information from approved company policies, considers regional applicability and policy versions, and provides verifiable citations for its answers. When reliable evidence is unavailable, it asks for clarification or safely abstains instead of inventing information.
+Unlike generic chatbots, PolicyPilot grounds answers strictly in approved company policies, filters retrieval by regional eligibility, cites exact source pages, and abstains when evidence is insufficient or conflicting.
 
-## 🎯 Problem Statement
-
-Employees often struggle to find relevant HR policies regarding leave, benefits, remote work, and other workplace guidelines. HR teams spend valuable time answering repetitive questions, while generic AI tools may provide unsupported or outdated information.
-
-## 💡 Our Solution
-
-PeoplePolicy AI combines **Retrieval-Augmented Generation (RAG)** with controlled policy management to deliver trustworthy HR information.
-
-### Key Features
-
-- **AI-Powered HR Chat:** Ask policy questions in natural language.
-- **Region-Aware Retrieval:** Retrieve policies applicable to the employee's authorized region.
-- **Verifiable Citations:** Display source policy, version, and page references.
-- **Policy Management:** Upload, review, publish, version, replace, and archive PDF policies.
-- **Safe AI Responses:** Clarify ambiguous questions and abstain when evidence is insufficient.
-- **HR Analytics Dashboard:** Track question trends, feedback, resolution outcomes, and policy knowledge gaps.
-- **Evaluation & Feedback:** Assess retrieval quality, citation correctness, and answer reliability.
+---
 
 ## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    A[Employee / HR Admin] --> B[Next.js Frontend]
-    B --> C[FastAPI Backend]
-    C --> D[Authentication & Authorization]
-    D --> E[Policy and RAG Services]
-    E --> F[Supabase PostgreSQL]
-    E --> G[pgvector Semantic Search]
-    E --> H[Private PDF Storage]
-    E --> I[Hosted Embedding API]
-    E --> J[Hosted LLM API]
-    G --> E
-    J --> K[Evidence and Citation Validation]
-    K --> L[Grounded Answer or Safe Abstention]
-    L --> B
-    C --> M[HR Analytics and Feedback]
-    M --> F
+    User([Employee / HR Admin]) --> Frontend[Next.js 16 Frontend / Vercel]
+    Frontend --> Backend[FastAPI Backend / PaaS or Container]
+    Backend --> Auth[Supabase Auth & RBAC Profile Validation]
+    Backend --> Storage[Supabase Private Storage: policy-documents]
+    Backend --> DB[(Supabase PostgreSQL + pgvector)]
+    Backend --> Embed[Embedding Service: 768-dim Vectors]
+    Backend --> LLM[LLM Service: Prompt-Isolated RAG]
+    Backend --> Citations[Citation Validation Service]
+    Backend --> Analytics[HR Analytics & Feedback Service]
+    Citations --> User
 ```
-
-## 🔄 Technical Workflow
-
-### 1. Policy Ingestion
-
-```mermaid
-flowchart LR
-    A[PDF Upload] --> B[Text Extraction]
-    B --> C[Page-Aware Chunking]
-    C --> D[Generate Embeddings]
-    D --> E[Store Chunks in PostgreSQL + pgvector]
-    A --> F[Private Supabase Storage]
-    E --> G[HR Review and Publication]
-```
-
-Only processed, reviewed, and explicitly published policies become eligible for employee-facing answers.
-
-### 2. AI Question Answering
-
-```mermaid
-flowchart TD
-    A[Employee Question] --> B[Resolve User and Region]
-    B --> C[Filter Applicable Published Policies]
-    C --> D[Retrieve Relevant Chunks]
-    D --> E{Sufficient Evidence?}
-    E -- Yes --> F[Generate Grounded Answer]
-    F --> G[Validate Evidence and Citations]
-    G --> H[Return Answer with Sources]
-    E -- No --> I[Clarify or Abstain]
-```
-
-## 🛠️ Technology Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js, TypeScript |
-| UI Styling | Tailwind CSS |
-| Backend | Python, FastAPI |
-| Database | Supabase PostgreSQL |
-| Vector Search | pgvector |
-| Document Storage | Supabase Private Storage |
-| PDF Processing | PyMuPDF |
-| AI & Embeddings | Hosted LLM and embedding APIs |
-| Testing | Pytest |
-
-## 🌟 What Makes PeoplePolicy AI Different?
-
-- **Evidence-first answers:** Responses are grounded in retrieved policy passages rather than general model knowledge.
-- **Regional and version awareness:** Answers respect policy applicability and publication status.
-- **Traceable information:** Citations link answers to specific policy versions and pages.
-- **Responsible AI behavior:** Insufficient or conflicting evidence triggers clarification or abstention.
-- **Actionable HR insights:** Analytics help identify recurring questions and potential gaps in policy documentation.
-
-## 🔐 Security and Reliability
-
-PeoplePolicy AI is designed around role-based access, private document storage, server-side authorization, and controlled policy retrieval. Employee queries must never expose policies outside the user's authorized scope. AI-generated answers are informational and do not replace official HR decisions.
-
-## 🚀 Project Roadmap
-
-1. Establish the frontend, backend, authentication, and database.
-2. Implement secure PDF ingestion and policy version management.
-3. Build region-aware RAG with citations and safe abstention.
-4. Integrate the employee chat and HR management interfaces.
-5. Add analytics, automated evaluation, security tests, and deployment.
-
-## 🎯 Project Goal
-
-To make company HR policies **accessible, understandable, traceable, and reliable** through an AI assistant that helps employees find the right information while enabling HR teams to manage policy knowledge more effectively.
-
-## 💻 Developer Setup
-
-Refer to [DEVELOPMENT.md](DEVELOPMENT.md) for local environment setup, commands, and testing workflows.
 
 ---
 
-**PolicyPilot AI — Trusted Answers. Clear Policies. Better Employee Experiences.**
+## 🔄 Technical Workflow
+
+```mermaid
+flowchart LR
+    subgraph Ingestion [Policy Ingestion & Lifecycle]
+        PDF[PDF Upload] --> Extract[PyMuPDF Page Extraction]
+        Extract --> Chunk[Page-Aware Chunking]
+        Chunk --> Embeddings[Generate Embeddings]
+        Embeddings --> Store[(pgvector + PostgreSQL)]
+        Store --> Review[HR Review & Publication]
+    end
+    subgraph Query [Region-Aware Query & Validation]
+        Question[Employee Query] --> AuthCheck[Profile & Region Resolution]
+        AuthCheck --> Search[Regional pgvector Semantic Search]
+        Search --> AnswerGen[Grounded Answer Generation]
+        AnswerGen --> Validate[Citation & Evidence Verification]
+        Validate --> Response[Grounded Answer / Safe Abstention]
+    end
+```
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Description |
+|---|---|---|
+| **Frontend** | Next.js 16 (App Router), TypeScript, React 19 | Enterprise dashboard with authenticated route guards |
+| **Backend** | Python 3.11+, FastAPI, Uvicorn | High-performance asynchronous REST API |
+| **Database** | Supabase PostgreSQL + pgvector | Relational schema with HNSW/cosine vector indexing |
+| **Migrations** | Alembic (asyncpg) | Version-controlled schema migrations |
+| **Document Storage**| Supabase Private Storage | Secured PDF document storage with signed URLs |
+| **PDF Processing** | PyMuPDF (fitz) | High-fidelity page-aware text and metadata extraction |
+| **AI / Embeddings** | Ollama / OpenAI-compatible APIs | 768-dim embeddings (`nomic-embed-text`) & LLM generation |
+| **Quality & Tests** | Pytest, Node Test Runner, ESLint, TypeScript | 163 backend tests, 20 frontend test suites |
+
+---
+
+## 🔐 Security & Access Control
+
+- **Role-Based Access Control (RBAC):** Server-side verification of `EMPLOYEE` vs `HR_ADMINISTRATOR`. Client claims are ignored.
+- **Geographic Data Boundaries:** Queries and policy access enforce strict regional boundaries (`US`, `EU`, `APAC`, `LATAM`, and `GLOBAL`).
+- **Storage Authorization Guards:** Policy PDFs cannot be downloaded unless the user is an HR admin or the document is `PUBLISHED` and within their region.
+- **Input Validation & DoS Protection:** Chat messages enforce `max_length=2000` to prevent token amplification and memory exhaustion.
+- **Prompt Injection Hardening:** User questions are structurally isolated using `<user_question>` delimiters with strict system prompt grounding constraints.
+
+---
+
+## 💻 Local Development Setup
+
+### 1. Prerequisites
+- Python 3.11+
+- Node.js 18+ (Node 24 LTS supported)
+- Git
+
+### 2. Quick Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/nidhi041/PolicyPilot.git
+cd PolicyPilot
+
+# 1. Backend setup
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate   # Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env       # Configure DATABASE_URL and Supabase credentials
+cd ..
+
+# 2. Frontend setup
+cd frontend
+npm install --prefer-offline
+cp .env.local.example .env.local
+cd ..
+```
+
+### 3. Database Migrations
+Apply database schema and vector extensions via Alembic:
+```bash
+cd backend
+alembic upgrade head
+cd ..
+```
+
+### 4. Running Development Servers
+From the root repository directory:
+```bash
+# Run both frontend (http://localhost:3000) and backend (http://localhost:8000)
+npm run dev:frontend
+npm run dev:backend
+```
+
+---
+
+## 🧪 Running Tests & Quality Checks
+
+Run the complete verification suite from the root directory:
+```bash
+# Full test suite (Frontend TypeScript, ESLint, Unit Tests + Backend Pytest)
+npm test
+
+# Service-specific test suites
+npm run test:frontend
+npm run test:backend
+
+# Production frontend build validation
+npm run build:frontend
+```
+
+---
+
+## 🚀 Production Deployment
+
+PolicyPilot is prepared for cloud deployment:
+- **Frontend**: Hosted on [Vercel](https://vercel.com) using [`frontend/vercel.json`](frontend/vercel.json).
+- **Backend**: Container or PaaS hosting using [`backend/Procfile`](backend/Procfile) or [`backend/Dockerfile`](backend/Dockerfile).
+- **Health Checks**: `/health` endpoint returns HTTP 200 for healthy instances and HTTP 503 for degraded database connectivity.
+- **Deployment Guide**: See [DEPLOYMENT.md](DEPLOYMENT.md) for full deployment instructions and environment configuration.
+
+---
+
+## ⚠️ Known Limitations & Operational Considerations
+
+1. **Embedding Dimension Matching:** The vector table schema uses 768 dimensions. If switching to 1536-dim models (e.g. OpenAI `text-embedding-3-small`), run a migration to update column dimensions.
+2. **LLM Non-Determinism:** While the citation validation engine rejects ungrounded claims, slight variations in phrasing may occur across different model backends.
+3. **Supabase Service Role Access:** The backend uses the Supabase Service Role key for administrative operations; access controls and regional boundaries are strictly enforced at the FastAPI boundary.
+
+---
+
+## 📋 Release Checklist
+
+- [x] All 163 backend tests passing (`pytest backend/tests`).
+- [x] All 20 frontend unit & lint checks passing (`npm test --prefix frontend`).
+- [x] Production build validated with 0 errors (`npm run build --prefix frontend`).
+- [x] Security audit and hardening verified (input limits, storage guards, prompt isolation).
+- [x] Database migrations documented and tested against Supabase PostgreSQL.
