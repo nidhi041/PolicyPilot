@@ -24,7 +24,7 @@ async def _maybe_await(val: Any) -> Any:
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="Employee question or message")
+    message: str = Field(..., min_length=1, max_length=2000, description="Employee question or message")
     conversation_id: Optional[uuid.UUID] = Field(None, description="Optional existing conversation identifier")
     policy_id: Optional[uuid.UUID] = Field(None, description="Optional applicable policy ID scope")
     limit: int = Field(5, ge=1, le=20, description="Maximum evidence chunks to retrieve")
