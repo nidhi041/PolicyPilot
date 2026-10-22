@@ -26,7 +26,17 @@ cp .env.example .env
 cd ..
 ```
 
-### 2. Frontend Setup
+### 2. Database Migrations
+
+Apply database migrations to configure schema and pgvector vector indexing:
+
+```bash
+cd backend
+alembic upgrade head
+cd ..
+```
+
+### 3. Frontend Setup
 
 ```bash
 cd frontend
