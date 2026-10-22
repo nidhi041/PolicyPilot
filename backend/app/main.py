@@ -1,6 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.analytics import analytics_router
 from app.auth import auth_router
@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.api_prefix}/health", tags=["Health"])
-    async def health_check() -> dict:
+    async def health_check(response: Response) -> dict:
         result: dict = {"status": "healthy", "environment": settings.environment, "app": settings.app_name}
         if settings.database_url:
             from app.db.health import check_db_connectivity
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
             result["database"] = {"status": db_result.status, "message": db_result.message}
             if db_result.status == "error":
                 result["status"] = "degraded"
+                response.status_code = 503
         else:
             result["database"] = {"status": "unconfigured"}
         return result
