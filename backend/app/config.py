@@ -50,10 +50,12 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _normalise_database_url(self) -> "Settings":
         if self.database_url:
+            clean = self.database_url.strip()
             for p in ("postgresql://", "postgres://"):
-                if self.database_url.startswith(p):
-                    object.__setattr__(self, "database_url", "postgresql+asyncpg://" + self.database_url[len(p):])
+                if clean.startswith(p):
+                    clean = "postgresql+asyncpg://" + clean[len(p):]
                     break
+            object.__setattr__(self, "database_url", clean)
         return self
 
 
