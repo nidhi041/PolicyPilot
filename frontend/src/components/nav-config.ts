@@ -7,13 +7,13 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Employee Chat", href: "/chat", icon: "💬" },
-  { label: "Policy Management", href: "/policies", icon: "📄", hrOnly: true },
+  { label: "Company Policies", href: "/policies", icon: "📄" },
   { label: "HR Analytics", href: "/analytics", icon: "📊", hrOnly: true },
 ] as const;
 
 export function canAccessRoute(pathname: string, isAuth: boolean, isHrAdmin: boolean): boolean {
   if (!isAuth) return false;
-  if (!isHrAdmin && (pathname.startsWith("/policies") || pathname.startsWith("/analytics"))) {
+  if (!isHrAdmin && pathname.startsWith("/analytics")) {
     return false;
   }
   return true;

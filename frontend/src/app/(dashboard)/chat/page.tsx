@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import {
   sendChatMessage,
@@ -180,12 +181,20 @@ export default function ChatPage() {
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Verified Sources:</p>
                     <div className="flex flex-wrap gap-2">
                       {msg.citations.map((c, idx) => (
-                        <div key={idx} className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 shadow-2xs">
-                          <span className="font-medium text-indigo-700">{c.policy_title}</span>
-                          <span className="text-slate-400 mx-1">·</span>
-                          <span className="text-slate-500">v{c.version} (p. {c.page_number})</span>
-                          {c.quote && <p className="italic text-slate-500 mt-0.5 line-clamp-2">&quot;{c.quote}&quot;</p>}
-                        </div>
+                        <Link
+                          key={idx}
+                          href={`/policies?search=${encodeURIComponent(c.policy_title)}`}
+                          className="group block bg-white hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 shadow-2xs transition-colors"
+                          title={`Click to view and verify: ${c.policy_title}`}
+                        >
+                          <div className="flex items-center gap-1.5 font-medium text-indigo-700 group-hover:text-indigo-900">
+                            <span>📄 {c.policy_title}</span>
+                            <span className="text-slate-400 font-normal">·</span>
+                            <span className="text-slate-500 font-normal">v{c.version} (p. {c.page_number})</span>
+                            <span className="text-indigo-500 text-[11px] group-hover:translate-x-0.5 transition-transform">↗</span>
+                          </div>
+                          {c.quote && <p className="italic text-slate-500 mt-1 line-clamp-2 text-[11px]">&quot;{c.quote}&quot;</p>}
+                        </Link>
                       ))}
                     </div>
                   </div>

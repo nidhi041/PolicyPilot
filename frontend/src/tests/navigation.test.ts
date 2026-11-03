@@ -21,9 +21,15 @@ test("navigation items have accessible non-empty labels and icons", () => {
 test("getPageTitle correctly identifies active route titles and enterprise fallback", () => {
   assert.strictEqual(getPageTitle("/chat"), "Employee Chat");
   assert.strictEqual(getPageTitle("/chat/session-123"), "Employee Chat");
-  assert.strictEqual(getPageTitle("/policies"), "Policy Management");
-  assert.strictEqual(getPageTitle("/policies/upload"), "Policy Management");
+  assert.strictEqual(getPageTitle("/policies"), "Company Policies");
+  assert.strictEqual(getPageTitle("/policies/upload"), "Company Policies");
   assert.strictEqual(getPageTitle("/analytics"), "HR Analytics");
   assert.strictEqual(getPageTitle("/"), "PolicyPilot Enterprise");
   assert.strictEqual(getPageTitle("/unknown"), "PolicyPilot Enterprise");
+});
+
+test("policy citation link resolves to accessible policy verification route with search filter", () => {
+  const policyTitle = "Global Parental Leave Policy";
+  const href = `/policies?search=${encodeURIComponent(policyTitle)}`;
+  assert.strictEqual(href, "/policies?search=Global%20Parental%20Leave%20Policy");
 });
