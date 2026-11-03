@@ -19,15 +19,15 @@ test("session expiration distinguishes active vs expired sessions", () => {
 
 test("role-specific navigation filters HR-only routes for employees", () => {
   const emp = getVisibleNavItems(false);
-  assert.equal(emp.length, 1);
-  assert.equal(emp[0]?.href, "/chat");
+  assert.equal(emp.length, 2);
+  assert.deepEqual(emp.map((i) => i.href), ["/chat", "/policies"]);
   const hr = getVisibleNavItems(true);
   assert.equal(hr.length, 3);
   assert.deepEqual(hr.map((i) => i.href), ["/chat", "/policies", "/analytics"]);
 });
 
 test("HR-only route authorization guard protects sensitive routes", () => {
-  assert.equal(canAccessRoute("/policies", true, false), false);
+  assert.equal(canAccessRoute("/policies", true, false), true);
   assert.equal(canAccessRoute("/analytics", true, false), false);
   assert.equal(canAccessRoute("/policies", true, true), true);
   assert.equal(canAccessRoute("/analytics", true, true), true);

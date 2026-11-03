@@ -16,10 +16,16 @@ import {
 
 export default function PoliciesPage() {
   const { session } = useAuth();
+  const isHr = Boolean(session?.profile?.is_hr_administrator);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("search") || "";
+    }
+    return "";
+  });
   const [region, setRegion] = useState("ALL");
   const [category, setCategory] = useState("ALL");
   const [showUpload, setShowUpload] = useState(false);
@@ -120,12 +126,18 @@ export default function PoliciesPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Policy Management</h2>
-          <p className="text-sm text-slate-500">Upload, review, publish, and manage company policies and compliance versions.</p>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{isHr ? "Policy Management" : "Company Policies"}</h2>
+          <p className="text-sm text-slate-500">
+            {isHr
+              ? "Upload, review, publish, and manage company policies and compliance versions."
+              : "Browse and verify official company policies, guidelines, and compliance documents."}
+          </p>
         </div>
-        <button type="button" onClick={() => setShowUpload(!showUpload)} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-xs">
-          {showUpload ? "Cancel" : "+ Upload Policy"}
-        </button>
+        {isHr && (
+          <button type="button" onClick={() => setShowUpload(!showUpload)} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-xs">
+            {showUpload ? "Cancel" : "+ Upload Policy"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -135,7 +147,7 @@ export default function PoliciesPage() {
         </div>
       )}
 
-      {showUpload && (
+      {isHr && showUpload && (
         <form onSubmit={handleUpload} className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs space-y-4">
           <h3 className="text-base font-semibold text-slate-800">Register New Policy Document</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -200,16 +212,18 @@ export default function PoliciesPage() {
                           <span>{downloadingPath === v.storage_path ? "Loading..." : "View PDF"}</span>
                         </button>
                       )}
-                      <button type="button" onClick={() => setReplacingId(replacingId === p.id ? null : p.id)} className="px-2.5 py-1 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100">
-                        {replacingId === p.id ? "Cancel" : "+ New Version"}
-                      </button>
+                      {isHr && (
+                        <button type="button" onClick={() => setReplacingId(replacingId === p.id ? null : p.id)} className="px-2.5 py-1 text-xs font-medium rounded border border-slate-300 hover:bg-slate-100">
+                          {replacingId === p.id ? "Cancel" : "+ New Version"}
+                        </button>
+                      )}
                       <button type="button" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)} className="px-2.5 py-1 text-xs font-semibold rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                        {expandedId === p.id ? "Hide History" : `Inspect Versions (${vers.length})`}
+                        {expandedId === p.id ? "Hide History" : isHr ? `Inspect Versions (${vers.length})` : `Version History (${vers.length})`}
                       </button>
                     </div>
                   </div>
 
-                  {replacingId === p.id && (
+                  {isHr && replacingId === p.id && (
                     <form onSubmit={(e) => handleReplaceVersion(e, p.id)} className="p-4 bg-slate-50 flex flex-wrap items-center gap-3 text-xs">
                       <span className="font-semibold text-slate-700">Replace/New Version:</span>
                       <input name="version_label" defaultValue="2.0" required placeholder="Version Label" className="px-2 py-1 border rounded w-28" />
@@ -244,17 +258,21 @@ export default function PoliciesPage() {
                                   {downloadingPath === ver.storage_path ? "Loading..." : "📄 View PDF"}
                                 </button>
                               )}
-                              {ver.processing_status !== "completed" && ver.status !== "archived" && (
-                                <button type="button" disabled={isBusy} onClick={() => handleAction(() => processPolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50">{isBusy ? "Processing..." : "Process"}</button>
-                              )}
-                              {ver.status === "draft" && (
-                                <button type="button" disabled={isBusy} onClick={() => handleAction(() => reviewPolicyVersion(session?.access_token || "", p.id, ver.id, "under_review"), ver.id)} className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-50">Submit Review</button>
-                              )}
-                              {ver.status !== "published" && ver.status !== "archived" && (
-                                <button type="button" disabled={isBusy} onClick={() => confirmAction(`Publish version v${ver.version_label}? This will make it live.`, () => publishPolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Publish</button>
-                              )}
-                              {ver.status !== "archived" && (
-                                <button type="button" disabled={isBusy} onClick={() => confirmAction(`Archive version v${ver.version_label}?`, () => archivePolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:opacity-50">Archive</button>
+                              {isHr && (
+                                <>
+                                  {ver.processing_status !== "completed" && ver.status !== "archived" && (
+                                    <button type="button" disabled={isBusy} onClick={() => handleAction(() => processPolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50">{isBusy ? "Processing..." : "Process"}</button>
+                                  )}
+                                  {ver.status === "draft" && (
+                                    <button type="button" disabled={isBusy} onClick={() => handleAction(() => reviewPolicyVersion(session?.access_token || "", p.id, ver.id, "under_review"), ver.id)} className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 hover:bg-purple-100 disabled:opacity-50">Submit Review</button>
+                                  )}
+                                  {ver.status !== "published" && ver.status !== "archived" && (
+                                    <button type="button" disabled={isBusy} onClick={() => confirmAction(`Publish version v${ver.version_label}? This will make it live.`, () => publishPolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Publish</button>
+                                  )}
+                                  {ver.status !== "archived" && (
+                                    <button type="button" disabled={isBusy} onClick={() => confirmAction(`Archive version v${ver.version_label}?`, () => archivePolicyVersion(session?.access_token || "", p.id, ver.id), ver.id)} className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:opacity-50">Archive</button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
